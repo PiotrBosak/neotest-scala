@@ -6,7 +6,24 @@ local utils = require("neotest-scala.utils")
 ---@type neotest.Adapter
 local ScalaNeotestAdapter = { name = "neotest-scala" }
 
-ScalaNeotestAdapter.root = lib.files.match_root_pattern("build.sbt")
+local buildSbtRoot = lib.files.match_root_pattern("build.sbt")
+local buildGradleRoot = lib.files.match_root_pattern("build.gradle")
+local buildMavenRoot = lib.files.match_root_pattern("pom.xml")
+
+
+ScalaNeotestAdapter.root = buildSbtRoot or buildGradleRoot or buildMavenRoot
+
+if buildSbtRoot ~= nil then
+ ScalaNeotestAdapter.build_file = "build.sbt"
+end
+
+if buildGradleRoot ~= nil then
+ ScalaNeotestAdapter.build_file = "build.gradle"
+end
+
+if buildMavenRoot ~= nil then
+ ScalaNeotestAdapter.build_file = "pom.xml"
+end
 
 ---@async
 ---@param file_path string
@@ -17,7 +34,7 @@ function ScalaNeotestAdapter.is_test_file(file_path)
     end
     local elems = vim.split(file_path, Path.path.sep)
     local file_name = string.lower(elems[#elems])
-    local patterns = { "test", "spec", "suite" }
+    local patterns = { "test", "spec", "suite", "tests", "specs", "suites" }
     for _, pattern in ipairs(patterns) do
         if string.find(file_name, pattern) then
             return true
@@ -100,37 +117,99 @@ local function get_framework()
     return "utest"
 end
 
+local function read_array(cmd)
+  local arr    = {}
+  local handle = assert(io.popen(cmd), string.format("Unable to execute: [%s]", cmd))
+  local value  = handle:read("*line")
+  while value do
+    table.insert(arr, value)
+    value = handle:read("*line")
+  end
+  handle:close()
+  return arr
+end
+
+local function read_file(filename)
+  local file = assert(io.open(filename, "r"), "Failed to open file: " .. filename)
+  local content = file:read("*all")
+  file:close()
+  return content
+end
+
+local function is_subpath(directory_path, file_path)
+  directory_path = directory_path:gsub("\\", "/")
+  file_path = file_path:gsub("\\", "/")
+  if not directory_path:match("/$") then
+    directory_path = directory_path .. "/"
+  end
+  if not file_path:match("/$") then
+    file_path = file_path .. "/"
+  end
+  return file_path:find(directory_path, 1, true) == 1
+end
+
+local function count_segments(path)
+  local count = 0
+  path = path:gsub("\\", "/")
+  for _ in string.gmatch(path, "/") do
+    count = count + 1
+  end
+  return count
+end
+
+local function find_project(projects, bloop_path, filename)
+  local longest = ""
+  local res = ""
+  for _, project in ipairs(projects) do
+    local json_path = bloop_path .. "/" .. project .. ".json"
+    local json_data = read_file(json_path)
+    local pattern = '%"directory%":%s%"([^"]+)%"'
+    local project_path = json_data:match(pattern)
+    local is_in_project = is_subpath(project_path, filename)
+    if is_in_project then
+      if count_segments(project_path) > count_segments(longest) then
+        longest = project_path
+        res = project
+      end
+    end
+  end
+  return res
+end
+
 ---Get first project name from bloop projects.
 ---@return string|nil
-local function get_bloop_project_name()
-    local command = "bloop projects"
-    local handle = assert(io.popen(command), string.format("unable to execute: [%s]", command))
-    local result = handle:read("*l")
-    handle:close()
-    return result
+local function get_bloop_project_name(root, filename)
+  local command = "bloop projects"
+  local projects = read_array(command)
+  local bloop_path = root .. "/.bloop"
+  local project = find_project(projects, bloop_path, filename)
+  return project
 end
 
 ---Get project name from build file.
 ---@return string|nil
 local function get_project_name(path, runner)
     local root = ScalaNeotestAdapter.root(path)
-    local build_file = root .. "/build.sbt"
+    local build_file = root .. "/" .. ScalaNeotestAdapter.build_file
     local success, lines = pcall(lib.files.read_lines, build_file)
     if not success then
         return nil
     end
-    for _, line in ipairs(lines) do
-        local project = line:match('^name := "(.+)"')
-        if project then
-            return project
-        end
+    if runner == "sbt" then
+      for _, line in ipairs(lines) do
+          local project = line:match('^name := "(.+)"')
+          if project then
+              return project
+          end
+      end
     end
     if runner == "bloop" then
-        local bloop_project = get_bloop_project_name()
+        local bloop_project = get_bloop_project_name(root, path)
         if bloop_project then
             return bloop_project
         end
     end
+    --TODO: support for Gradle and Maven (currently works with Bloop)
     return nil
 end
 
