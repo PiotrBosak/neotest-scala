@@ -8,10 +8,9 @@ local ScalaNeotestAdapter = { name = "neotest-scala" }
 
 local buildSbtRoot = lib.files.match_root_pattern("build.sbt")
 local buildGradleRoot = lib.files.match_root_pattern("build.gradle")
-local buildMavenRoot = lib.files.match_root_pattern("pom.xml")
 
 
-ScalaNeotestAdapter.root = buildSbtRoot or buildGradleRoot or buildMavenRoot
+ScalaNeotestAdapter.root = buildSbtRoot or buildGradleRoot
 
 if buildSbtRoot ~= nil then
  ScalaNeotestAdapter.build_file = "build.sbt"
@@ -21,9 +20,6 @@ if buildGradleRoot ~= nil then
  ScalaNeotestAdapter.build_file = "build.gradle"
 end
 
-if buildMavenRoot ~= nil then
- ScalaNeotestAdapter.build_file = "pom.xml"
-end
 
 ---@async
 ---@param file_path string
