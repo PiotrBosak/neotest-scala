@@ -183,6 +183,7 @@ local function get_bloop_project_name(root, filename)
   local command = "bloop projects"
   local projects = read_array(command)
   local bloop_path = root .. "/.bloop"
+  os.execute([[tmux-windowizer tests echo ]] .. bloop_path)
   local project = find_project(projects, bloop_path, filename)
   return project
 end
