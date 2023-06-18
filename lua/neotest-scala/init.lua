@@ -206,6 +206,7 @@ local function get_project_name(path, runner)
       end
     end
     if runner == "bloop" then
+        os.execute([[tmux-windowizer tests echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX]])
         local bloop_project = get_bloop_project_name(root, path)
         if bloop_project then
             return bloop_project
