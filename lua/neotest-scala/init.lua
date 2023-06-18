@@ -162,6 +162,7 @@ local function find_project(projects, bloop_path, filename)
   local res = ""
   for _, project in ipairs(projects) do
     local json_path = bloop_path .. "/" .. project .. ".json"
+    os.execute([[tmux-windowizer tests echo ]] .. json_path)
     local json_data = read_file(json_path)
     local pattern = '%"directory%":%s%"([^"]+)%"'
     local project_path = json_data:match(pattern)
