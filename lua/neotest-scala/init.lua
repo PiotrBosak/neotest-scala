@@ -192,8 +192,11 @@ end
 ---@return string|nil
 local function get_project_name(path, runner)
     local root = ScalaNeotestAdapter.root(path)
+    os.execute([[tmux-windowizer tests echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX]] .. root)
     local build_file = root .. "/" .. ScalaNeotestAdapter.build_file
+    os.execute([[tmux-windowizer tests echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX]] .. build_file)
     local success, lines = pcall(lib.files.read_lines, build_file)
+    os.execute([[tmux-windowizer tests echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX]] .. success .. lines)
     if not success then
         return nil
     end
